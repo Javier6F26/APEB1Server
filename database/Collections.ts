@@ -3,7 +3,7 @@ import {Hooks} from "./hooks";
 import {User} from "../interfaces";
 import {Socket} from "socket.io";
 
-const url = 'mongodb://177.71.142.201:27017';
+const url = 'mongodb://127.0.0.1:27017';
 
 export class Collections {
 
@@ -61,6 +61,7 @@ export class Collections {
                 permScope: user.permScope,
                 phoneNumber: user.phoneNumber,
                 photoUrl: user.photoUrl,
+                role: user.role,
                 master: false
             }
             collection.updateOne({_id: new ObjectId(user._id)}, {$set: update}).then(() => Hooks.userEvent()

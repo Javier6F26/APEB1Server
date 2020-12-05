@@ -1,5 +1,4 @@
-import express, {Request, Response} from "express";
-import * as http from "http";
+import express from "express";
 import * as bodyParser from "body-parser"
 import {authKey, verificationPrivate} from "./configs";
 import jwt, {VerifyErrors} from "jsonwebtoken"
@@ -9,6 +8,8 @@ import {UsersSocket} from "./sockets/UsersSocket";
 import {Hooks} from "./database/hooks";
 import {Collections} from "./database/Collections";
 import {User, VerificationToken} from "./interfaces";
+import * as https from "https";
+import * as fs from "fs";
 
 const options: cors.CorsOptions = {
     allowedHeaders: [
@@ -20,13 +21,13 @@ const options: cors.CorsOptions = {
     ],
     credentials: true,
     methods: 'POST',
-    //origin: 'http://localhost:4200/',
+    origin: 'https://app-server.pro',
     preflightContinue: false,
 };
 
 export class Server {
     app: express.Application
-    httpServer: http.Server
+    httpServer: https.Server
     private static _instance: Server;
 
     public static get instance() {
@@ -91,7 +92,6 @@ export class Server {
                 })
             });
         })
-
         this.app.post('/resendVerificationCode', (req, res) => {
             const token = req.body.token;
             jwt.verify(token, verificationPrivate, (verifiedError: VerifyErrors | null, decoded: VerificationToken | any) => {
@@ -108,7 +108,6 @@ export class Server {
                 })
             });
         })
-
         this.app.post('/authenticate', (req, res) => {
 
             const token = req.body.token;
@@ -122,7 +121,12 @@ export class Server {
                 });
             });
         })
-        this.httpServer = http.createServer(this.app)
+
+
+        this.httpServer = https.createServer({
+            key: fs.readFileSync('/etc/letsencrypt/live/app-server.pro/privkey.pem'),
+            cert: fs.readFileSync('/etc/letsencrypt/live/app-server.pro/fullchain.pem')
+        }, this.app)
         const socketServer = socketIO(this.httpServer)
         socketServer.use((socket, next) => {
             const token = socket.handshake.query.token

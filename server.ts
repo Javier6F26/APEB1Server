@@ -49,49 +49,64 @@ export class Server {
                     return
                 }
                 let verificationCode: number = Math.floor(100000 + Math.random() * 900000)
-                const verificationToken: VerificationToken = {user: users[0]}
+                const verificationToken: VerificationToken = {
+                    user: {
+                        userName: users[0].userName,
+                        displayName: users[0].displayName,
+                        permScope: users[0].permScope,
+                        email: users[0].email,
+                        phoneNumber: users[0].phoneNumber,
+                        photoUrl: users[0].photoUrl,
+                        role: users[0].role,
+                        _id: users[0]._id
+                    }
+                }
                 Collections.insertVerification({verificationCode}, (id: string) => {
                     verificationToken.id = id
-                    jwt.sign(verificationToken, verificationPrivate, {expiresIn: 300}, (err, encoded) => {
-                        if (encoded)
-                            res.send({verified: true, verificationCode, token: encoded})
-                    });
+                    jwt.sign(verificationToken, verificationPrivate, {expiresIn: 300},
+                        (err, encoded) => {
+                            if (encoded)
+                                res.send({verified: true, verificationCode, token: encoded})
+                        });
                 })
 
 
             });
         });
-        this.app.post('/verification', (req, res) => {
-            const token = req.body.token;
-            const verificationCode = req.body.verificationCode;
-            jwt.verify(token, verificationPrivate, (verifiedError: VerifyErrors | null, decoded: VerificationToken | any) => {
-                if (verifiedError) {
-                    res.send({verified: false})
-                    return;
-                }
-                Collections.getVerification(decoded.id, (callback: any[]) => {
-                    if (callback.length == 0) {
-                        res.send({verified: false})
-                        return;
-                    }
-                    if (verificationCode == callback[0].verificationCode) {
-                        Collections.updateLastSignIn(decoded.user, new Date().getTime())
-                        Collections.deleteVerification(decoded.id)
-                        jwt.sign({user: decoded.user}, authKey, {expiresIn: 300}, (err, encoded) => {
-                            if (err) {
-                                console.log(err)
-                                res.send(err)
-                                return
+        this.app.post('/verification',
+            (req, res) => {
+                const token = req.body.token;
+                const verificationCode = req.body.verificationCode;
+                jwt.verify(token, verificationPrivate,
+                    (verifiedError: VerifyErrors | null, decoded: VerificationToken | any) => {
+                        if (verifiedError) {
+                            res.send({verified: false})
+                            return;
+                        }
+                        Collections.getVerification(decoded.id, (callback: any[]) => {
+                            if (callback.length == 0) {
+                                res.send({verified: false})
+                                return;
                             }
-                            res.send({verified: true, token: encoded})
-                        });
-                    } else {
-                        res.send({invalid: true})
-                        return;
-                    }
-                })
-            });
-        })
+                            if (verificationCode == callback[0].verificationCode) {
+                                Collections.updateLastSignIn(decoded.user, new Date().getTime())
+                                Collections.deleteVerification(decoded.id)
+                                jwt.sign({user: decoded.user}, authKey, {expiresIn: 300},
+                                    (err, encoded) => {
+                                        if (err) {
+                                            console.log(err)
+                                            res.send(err)
+                                            return
+                                        }
+                                        res.send({verified: true, token: encoded})
+                                    });
+                            } else {
+                                res.send({invalid: true})
+                                return;
+                            }
+                        })
+                    });
+            })
         this.app.post('/resendVerificationCode', (req, res) => {
             const token = req.body.token;
             jwt.verify(token, verificationPrivate, (verifiedError: VerifyErrors | null, decoded: VerificationToken | any) => {
@@ -130,11 +145,12 @@ export class Server {
         const socketServer = socketIO(this.httpServer)
         socketServer.use((socket, next) => {
             const token = socket.handshake.query.token
-            jwt.verify(token, authKey, (verifiedError: VerifyErrors | null, decoded: { user: User } | any) => {
-                if (verifiedError) return next(new Error(verifiedError.message))
-                socket.handshake.query.userID = decoded.user._id
-                next()
-            })
+            jwt.verify(token, authKey,
+                (verifiedError: VerifyErrors | null, decoded: { user: User } | any) => {
+                    if (verifiedError) return next(new Error(verifiedError.message))
+                    socket.handshake.query.userID = decoded.user._id
+                    next()
+                })
         })
 
         socketServer.on("connection", clientIO => {
